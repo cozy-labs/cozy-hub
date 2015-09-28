@@ -1,0 +1,17 @@
+{
+  "name": "cozy-release",
+  "version": "0.0.1",
+  "description": "Generate release note for Cozy projects",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Clochix",
+  "license": "AGPL-3.0",
+  "bin" : { "cozhub" : "./index.js" },
+  "dependencies": {
+    "async": "^1.4.2",
+    "commander": "^2.8.1",
+    "github": "^0.2.4"
+  }
+}
