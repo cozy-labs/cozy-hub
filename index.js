@@ -13,6 +13,9 @@
     debug: false,
     version: "3.0.0"
   });
+  function ucfirst(s) {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
   function auth() {
     github.authenticate({
       type: "oauth",
@@ -94,12 +97,11 @@
           console.log('    h3 ' + ucfirst(repo.replace(/^cozy-/, '')) + " (" + version + ")");
           console.log('    ul');
           commits.reverse().forEach(function (commit) {
-            var message, type;
-            message = commit.commit.message.trim();
+            var message;
+            message = ucfirst(commit.commit.message.trim());
             message = message.replace(/\n\n/g, "\n").replace(/\n/g, "\n            ");
-            message = message.replace(/#(\d+)/g, "[#$1](https://github.com/" + user + "/" + repo + "/issues/$1)");
-            type = /fix/i.test(message) ? 'bug' : 'feature';
-            console.log('        li.' + type + ' ' + message);
+            message = message.replace(/#(\d+)/g, `<a href="https://github.com/${user}/${repo}/issues/$1" target="_blank">#$1</a>`);
+            console.log('        li ' + message);
             authors[commit.author.login] = {};
           });
           console.log('        li.contributors Contributors: ' + Object.keys(authors).map(function (a) {return ucfirst(a);}).sort().join(", "));
@@ -157,34 +159,40 @@
   .description('Generate the release note')
   .option("-s, --since <date>", "Start date")
   .option("-r, --repo <repo>", "Limit to one directory")
-  .option("-u, --user <user>", "User (default cozy)")
+  .option("-u, --user <user>", "User (default cozy,cozy-labs)")
   .action(function (cmd, options) {
-    var since, user;
-    user  = options.user || 'cozy';
+    var since, users;
+    users = options.user || 'cozy,cozy-labs';
     since = options.since + "T00:00:00Z";
     if (isNaN(Date.parse(since))) {
       console.error("Invalid date " + options.since);
     } else {
       auth();
-      if (options.repo) {
-        displayRepo(user, options.repo, since);
-      } else {
-        github.repos.getFromOrg({org: 'cozy', 'per_page': 100}, function (errGet, repos) {
-          if (errGet) {
-            console.error(errGet);
-          } else {
-            repos = repos.filter(function (repo) {
-              return !repo.private && !repo.fork;
-            });
-            repos = repos.sort(function (a, b) {
-              return (a.name < b.name ? -1 : 1);
-            });
-            async.map(repos, function (repo) {
-              displayRepo(user, repo.name, since);
-            });
-          }
-        });
-      }
+      async.map(users.split(','), function (user) {
+        if (options.repo) {
+          displayRepo(user, options.repo, since);
+        } else {
+          github.repos.getFromOrg({org: user, 'per_page': 100}, function (errGet, repos) {
+            if (errGet) {
+              console.error(`Error getting repository for ${user} : `, errGet);
+            } else {
+              repos = repos.filter(function (repo) {
+                return !repo.private && !repo.fork;
+              });
+              repos = repos.map(function (r) {
+                r.displayName = ucfirst(r.name.replace(/^cozy-/i, ''));
+                return r;
+              })
+              .sort(function (a, b) {
+                return (a.displayName < b.displayName ? -1 : 1);
+              });
+              async.map(repos, function (repo) {
+                displayRepo(user, repo.name, since);
+              });
+            }
+          });
+        }
+      });
     }
   }).on('--help', function () {
     console.log("    example release --since 2015-08-08");
