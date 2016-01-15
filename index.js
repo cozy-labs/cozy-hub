@@ -22,7 +22,7 @@
   function getContributors(user) {
     github.repos.getFromOrg({org: user, 'per_page': 100}, function (errGet, repos) {
       if (errGet) {
-        console.error(errGet);
+        console.error(`Error getting repos for ${user}` + user, errGet);
       } else {
         repos = repos.filter(function (repo) {
           return !repo.private && !repo.fork;
@@ -30,7 +30,7 @@
         async.map(repos, function (repo, cb) {
           github.repos.getContributors({ user: user, repo: repo.name, 'per_page': 100 }, function (errContrib, contribs) {
             if (errContrib) {
-              console.log(errContrib);
+              console.error(`Error getting contributors for ${user}/${repo.name}`, errContrib);
             } else {
               console.log("# " + repo.name);
               contribs.map(function (contrib) {
@@ -80,7 +80,9 @@
       var authors = {},
           merge   = new RegExp('^merge', 'i');
       if (errCommits) {
-        console.error(errCommits);
+        console.error(`Error getting commits from ${user}/${repo}/${branch} since ${since}: `, errCommits);
+      } else if (!Array.isArray(commits)) {
+        console.warn(`No commits in ${user}/${repo}/${branch} since ${since}`);
       } else {
         // remove merge, builds…
         commits = commits.filter(function (commit) {
@@ -89,7 +91,7 @@
         });
         if (commits.length > 0) {
           console.log("\n");
-          console.log('    h3 ' + repo.replace(/^cozy-/, '') + " (" + version + ")");
+          console.log('    h3 ' + ucfirst(repo.replace(/^cozy-/, '')) + " (" + version + ")");
           console.log('    ul');
           commits.reverse().forEach(function (commit) {
             var message, type;
@@ -100,8 +102,10 @@
             console.log('        li.' + type + ' ' + message);
             authors[commit.author.login] = {};
           });
-          console.log('        li.contributors Contributors: ' + Object.keys(authors).sort().join(", "));
+          console.log('        li.contributors Contributors: ' + Object.keys(authors).map(function (a) {return ucfirst(a);}).sort().join(", "));
           console.log("\n");
+        } else {
+          console.log(`Nothing new in ${user}/${repo}/${branch} since ${since}`);
         }
       }
     });
@@ -111,7 +115,7 @@
     var version = '?';
     github.repos.getContent({user: user, repo: repo, path: 'package.json'}, function (errVersion, manifest) {
       if (errVersion) {
-        console.error("Error getting verion for " + repo, errVersion);
+        console.error(`Error getting version for ${user}/${repo}`, errVersion);
       } else {
         try {
           version = JSON.parse(new Buffer(manifest.content, manifest.encoding).toString()).version;
@@ -124,14 +128,14 @@
   function compareBranches(user, repo) {
     github.repos.getBranch({user: user, repo: repo, branch: 'master'}, function (errMaster, master) {
       if (errMaster) {
-        console.error("Error getting master branch of " + repo, errMaster);
+        console.error(`Error getting master branch for ${user}/${repo}`, errMaster);
       } else {
         github.repos.getBranch({user: user, repo: repo, branch: 'development'}, function (errDev, dev) {
           if (errDev) {
             if (errDev.code === 404) {
               console.info("No development branch in " + repo);
             } else {
-              console.error("Error getting development branch of " + repo, errDev);
+              console.error(`Error getting development branch for ${user}/${repo}`, errDev);
             }
           } else {
             //console.log(master, dev);
@@ -202,7 +206,7 @@
     } else {
       github.repos.getFromOrg({org: user, 'per_page': 100}, function (errGet, repos) {
         if (errGet) {
-          console.error(errGet);
+          console.error(`Error getting repository for ${user} : `, errGet);
         } else {
           repos = repos.filter(function (repo) {
             return !repo.private && !repo.fork;
